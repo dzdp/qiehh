@@ -2,9 +2,8 @@ name: 统一茄皇每日任务
 
 on:
   schedule:
-    # 每天 UTC 16:10 (北京时间 00:10) 运行
-    - cron: '10 16 * * *'
-  workflow_dispatch: # 允许手动触发测试
+    - cron: '10 16,4 * * *'
+  workflow_dispatch:
 
 jobs:
   run-script:
@@ -31,4 +30,3 @@ jobs:
         WECOM_AGENTID: ${{ secrets.WECOM_AGENTID }}
         WECOM_TOUSER: ${{ secrets.WECOM_TOUSER }}
       run: python main.py
-
