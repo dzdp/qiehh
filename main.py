@@ -45,16 +45,12 @@ FRIEND_TASK_TYPE = "FRIEND_STEAL_ENERGY"
 FRIEND_STATUS_CLAIMABLE = "0"
 
 
-# ---------------- 工具函数 ----------------
-
 def get_beijing_time():
-    """获取当前北京时间"""
     tz = timezone(timedelta(hours=8))
     return datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
 
 
 def send_wecom(title, content):
-    """企业微信应用推送"""
     corpid = os.getenv('WECOM_CORPID')
     corpsecret = os.getenv('WECOM_CORPSECRET')
     agentid = os.getenv('WECOM_AGENTID')
@@ -92,12 +88,8 @@ def send_wecom(title, content):
 
 
 def parse_users():
-    """
-    解析环境变量：单参数格式，多账号换行分隔。
-    """
     raw = os.getenv("ACCOUNTS", "")
     accounts = []
-    # 直接按换行符切割
     for item in str(raw or "").splitlines():
         item = item.strip()
         if item:
@@ -106,7 +98,6 @@ def parse_users():
 
 
 def encrypt_payload(payload):
-    """Match the H5 client: RSA-OAEP-SHA256 + AES-256-GCM."""
     if CRYPTO_BACKEND is None:
         raise RuntimeError("缺少加密依赖，请安装 cryptography（pip install cryptography）")
 
@@ -142,11 +133,9 @@ def encrypt_payload(payload):
     }
 
 
-# ---------------- 核心业务类 ----------------
-
 class TomatoClient:
     def __init__(self, account_param):
-        self.account_param = account_param  # 目前只需要一个参数，这里作为 wid
+        self.account_param = account_param
         self.tomato_user_id = None
         self.session = requests.Session()
         self.session.headers.update(
@@ -154,7 +143,6 @@ class TomatoClient:
                 "User-Agent": USER_AGENT,
                 "Content-Type": "application/json",
                 "Origin": BASE_URL,
-                # 修改点1：请求头里的 Referer 传递 wid 参数
                 "Referer": f"{BASE_URL}/?wid={account_param}",
             }
         )
@@ -197,8 +185,7 @@ class TomatoClient:
             "/api/web/open/tomato/login",
             {
                 "shareTomatoUserId": None,
-                # 修改点2：将单参数作为 wid 传入，openId 留空
-                "openId": "",                     
+                "openId": "",
                 "wid": self.account_param,
                 "queryCardStatus": True,
             },
@@ -406,7 +393,6 @@ def main():
 
     print(f"[{bj_time}] 开始执行任务，共检测到 {total_accounts} 个账号")
 
-    # 单参数直接传入即可
     for index, account_param in enumerate(users, 1):
         print(f"\n===== 开始处理账号 {index} =====")
         try:
@@ -423,7 +409,6 @@ def main():
         if index < total_accounts:
             time.sleep(random.uniform(3, 5))
 
-    # 汇总运行报告
     failed_count = total_accounts - success_count
     
     summary_title = "🍅 统一茄皇每日任务报告"
@@ -435,18 +420,14 @@ def main():
         "━━━━━━━━━━━━━━━━━━━━\n"
     )
     
-    # 拼接详细日志
     detail_lines = []
     for logs in all_logs:
         detail_lines.extend(logs)
         detail_lines.append("━━━━━━━━━━━━━━━━━━━━")
         
     full_report = summary_stats + "\n".join(detail_lines)
-    
-    # 企业微信推送
     send_wecom(summary_title, full_report)
 
 
 if __name__ == "__main__":
     main()
-
