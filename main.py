@@ -50,6 +50,16 @@ def get_beijing_time():
     return datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
 
 
+def mask_string(s):
+    """仅仅用于失败账号的脱敏显示，方便认出是哪个号又不会泄露"""
+    if not s:
+        return "未知"
+    s = str(s).strip()
+    if len(s) <= 6:
+        return s
+    return s[:4] + "****" + s[-4:]
+
+
 def send_wecom(title, content):
     """企业微信群机器人 Webhook 推送"""
     webhook = os.getenv('WECOM_WEBHOOK')
@@ -248,6 +258,10 @@ class TomatoClient:
 
 
 def process_user(account_param, index):
+    """
+    处理单个账号
+    返回: (是否成功: bool, 日志列表: list)
+    """
     logs = [f"【账号 {index}】"]
     client = TomatoClient(account_param)
 
@@ -256,7 +270,7 @@ def process_user(account_param, index):
         client.login()
     except Exception as exc:
         logs.append(f"❌ 登录失败：{exc}")
-        return logs
+        return False, logs  # 登录失败，直接返回 False
 
     # 后台静默执行任务，不再打印详细过程
     completed = 0
@@ -317,9 +331,8 @@ def process_user(account_param, index):
     except Exception:
         pass
 
-    # 仅仅打印最终的任务状态
     logs.append(f"✅ 任务状态：成功完成 {completed} 个，跳过 {skipped} 个")
-    return logs
+    return True, logs  # 正常跑完返回 True
 
 
 def main():
@@ -338,23 +351,28 @@ def main():
         send_wecom("统一茄皇运行异常", message)
         return
 
-    all_logs = []
     total_accounts = len(users)
     success_count = 0
+    failed_wids = []  # 记录失败账号的列表
 
     print(f"[{bj_time}] 开始执行任务，共检测到 {total_accounts} 个账号")
 
     for index, account_param in enumerate(users, 1):
         print(f"\n===== 开始处理账号 {index} =====")
         try:
-            logs = process_user(account_param, index)
-            success_count += 1
+            is_success, logs = process_user(account_param, index)
+            if is_success:
+                success_count += 1
+            else:
+                # 记录失败的账号和脱敏 wid
+                failed_wids.append(f"账号 {index}: {mask_string(account_param)}")
         except Exception as exc:
             logs = [
                 f"【账号 {index}】",
-                f"❌ 处理失败：{exc}",
+                f"❌ 处理异常：{exc}",
             ]
-        all_logs.append(logs)
+            failed_wids.append(f"账号 {index}: {mask_string(account_param)}")
+            
         print("\n".join(logs))
         
         if index < total_accounts:
@@ -362,22 +380,21 @@ def main():
 
     failed_count = total_accounts - success_count
     
+    # 构建推送文本
     summary_title = "🍅 统一茄皇每日任务报告"
     summary_stats = (
         f"⏰ 执行时间：{bj_time}\n"
         f"📊 账号总数：{total_accounts} 个\n"
         f"🟢 成功运行：{success_count} 个\n"
-        f"🔴 失败数量：{failed_count} 个\n"
-        "━━━━━━━━━━━━━━━━━━━━\n"
+        f"🔴 失败数量：{failed_count} 个"
     )
     
-    detail_lines = []
-    for logs in all_logs:
-        detail_lines.extend(logs)
-        detail_lines.append("━━━━━━━━━━━━━━━━━━━━")
-        
-    full_report = summary_stats + "\n".join(detail_lines)
-    send_wecom(summary_title, full_report)
+    # 如果有失败的账号，追加到推送消息末尾
+    if failed_wids:
+        summary_stats += "\n\n⚠️ 失败账号列表：\n" + "\n".join(failed_wids)
+    
+    send_wecom(summary_title, summary_stats)
+
 
 if __name__ == "__main__":
     main()
