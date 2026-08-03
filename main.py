@@ -51,40 +51,27 @@ def get_beijing_time():
 
 
 def send_wecom(title, content):
-    corpid = os.getenv('WECOM_CORPID')
-    corpsecret = os.getenv('WECOM_CORPSECRET')
-    agentid = os.getenv('WECOM_AGENTID')
-    touser = os.getenv('WECOM_TOUSER', '@all')
+    """企业微信群机器人 Webhook 推送"""
+    webhook = os.getenv('WECOM_WEBHOOK')
 
-    if not all([corpid, corpsecret, agentid]):
-        print("未配置企业微信推送环境变量，跳过推送。")
+    if not webhook:
+        print("未配置企业微信机器人 WECOM_WEBHOOK 环境变量，跳过推送。")
         return
 
     try:
-        token_url = f"https://qyapi.weixin.qq.com/cgi-bin/gettoken?corpid={corpid}&corpsecret={corpsecret}"
-        res = requests.get(token_url).json()
-        if res.get('errcode') != 0:
-            print(f"获取企业微信 Token 失败: {res}")
-            return
-        access_token = res['access_token']
-
-        send_url = f"https://qyapi.weixin.qq.com/cgi-bin/message/send?access_token={access_token}"
         message = {
-            "touser": touser,
             "msgtype": "text",
-            "agentid": int(agentid),
             "text": {
                 "content": f"{title}\n\n{content}"
-            },
-            "safe": 0
+            }
         }
-        res = requests.post(send_url, json=message).json()
+        res = requests.post(webhook, json=message).json()
         if res.get('errcode') == 0:
-            print("企业微信推送成功！")
+            print("企业微信机器人推送成功！")
         else:
-            print(f"企业微信推送失败: {res}")
+            print(f"企业微信机器人推送失败: {res}")
     except Exception as e:
-        print(f"企业微信推送过程发生异常: {e}")
+        print(f"企业微信机器人推送过程发生异常: {e}")
 
 
 def parse_users():
