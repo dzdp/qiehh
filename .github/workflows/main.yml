@@ -1,4 +1,4 @@
-name: 统一茄皇每日任务
+name: 茄皇
 
 on:
   schedule:
@@ -25,9 +25,5 @@ jobs:
     - name: 运行主程序
       env:
         ACCOUNTS: ${{ secrets.ACCOUNTS }}
-        WECOM_CORPID: ${{ secrets.WECOM_CORPID }}
-        WECOM_CORPSECRET: ${{ secrets.WECOM_CORPSECRET }}
-        WECOM_AGENTID: ${{ secrets.WECOM_AGENTID }}
-        WECOM_TOUSER: ${{ secrets.WECOM_TOUSER }}
+        WECOM_WEBHOOK: ${{ secrets.WECOM_WEBHOOK }}  # <--- 修改了这里
       run: python main.py
-
