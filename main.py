@@ -72,7 +72,8 @@ def send_wecom(title, content):
         message = {
             "msgtype": "text",
             "text": {
-                "content": f"{title}\n\n{content}"
+                # [修改点]：这里把 f"{title}\n\n{content}" 改成了 f"{title}\n{content}"
+                "content": f"{title}\n{content}"
             }
         }
         res = requests.post(webhook, json=message).json()
