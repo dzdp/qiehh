@@ -25,5 +25,5 @@ jobs:
     - name: 运行主程序
       env:
         ACCOUNTS: ${{ secrets.ACCOUNTS }}
-        WECOM_WEBHOOK: ${{ secrets.WECOM_WEBHOOK }}  # <--- 修改了这里
+        WECOM_WEBHOOK: ${{ secrets.WECOM_WEBHOOK }}
       run: python main.py
