@@ -374,13 +374,13 @@ def process_user(account_param, index):
 def main():
     users = parse_users()
     bj_time = get_beijing_time()
-    
+    
     if CRYPTO_BACKEND is None:
         message = "缺少加密依赖，请安装 cryptography"
         print(message)
         send_wecom("统一茄皇运行异常", message)
         return
-        
+        
     if not users:
         message = "没有可用账号：未读取到 ACCOUNTS 环境变量，请确保已配置。"
         print(message)
@@ -405,12 +405,12 @@ def main():
             ]
         all_logs.append(logs)
         print("\n".join(logs))
-        
+        
         if index < total_accounts:
             time.sleep(random.uniform(3, 5))
 
     failed_count = total_accounts - success_count
-    
+    
     summary_title = "🍅 统一茄皇每日任务报告"
     summary_stats = (
         f"⏰ 执行时间：{bj_time}\n"
@@ -419,15 +419,14 @@ def main():
         f"🔴 失败数量：{failed_count} 个\n"
         "━━━━━━━━━━━━━━━━━━━━\n"
     )
-    
+    
     detail_lines = []
     for logs in all_logs:
         detail_lines.extend(logs)
         detail_lines.append("━━━━━━━━━━━━━━━━━━━━")
-        
+        
     full_report = summary_stats + "\n".join(detail_lines)
     send_wecom(summary_title, full_report)
-
 
 if __name__ == "__main__":
     main()
