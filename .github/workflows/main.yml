@@ -1,0 +1,33 @@
+name: 统一茄皇每日任务
+
+on:
+  schedule:
+    - cron: '10 16,4 * * *'
+  workflow_dispatch:
+
+jobs:
+  run-script:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v3
+
+    - name: 设置 Python 环境
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: 安装依赖包
+      run: |
+        pip install requests cryptography
+
+    - name: 运行主程序
+      env:
+        ACCOUNTS: ${{ secrets.ACCOUNTS }}
+        WECOM_CORPID: ${{ secrets.WECOM_CORPID }}
+        WECOM_CORPSECRET: ${{ secrets.WECOM_CORPSECRET }}
+        WECOM_AGENTID: ${{ secrets.WECOM_AGENTID }}
+        WECOM_TOUSER: ${{ secrets.WECOM_TOUSER }}
+      run: python main.py
+
