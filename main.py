@@ -260,114 +260,78 @@ class TomatoClient:
         ).get("data") or {}
 
 
-def home_line(data, prefix="当前状态"):
-    return (
-        f"{prefix}：能量 {data.get('energyBalance', 0)}，"
-        f"番茄 {data.get('tomatoBalance', 0)}，"
-        f"{data.get('stageName', '未知阶段')} "
-        f"{data.get('currentExp', 0)}/{data.get('stageRequiredExp', 0)}"
-    )
-
-
 def process_user(account_param, index):
     logs = [f"【账号 {index}】"]
     client = TomatoClient(account_param)
 
-    login_data = client.login()
-    logs.append(f"登录成功：{login_data.get('nickName') or '未设置昵称'}")
-    home = client.home()
-    logs.append(home_line(home))
+    # 尝试登录
+    try:
+        client.login()
+    except Exception as exc:
+        logs.append(f"❌ 登录失败：{exc}")
+        return logs
 
+    # 后台静默执行任务，不再打印详细过程
     completed = 0
     skipped = 0
     friend_task = None
-    for task in client.tasks():
-        name = task.get("taskName") or task.get("taskCode") or "未知任务"
-        task_type = task.get("taskType")
-        if task_type == FRIEND_TASK_TYPE:
-            friend_task = task
+    
+    try:
+        for task in client.tasks():
+            task_type = task.get("taskType")
+            if task_type == FRIEND_TASK_TYPE:
+                friend_task = task
+                continue
             if str(task.get("completed")) == "1":
-                logs.append(f"任务已完成：{name}")
-            continue
-        if str(task.get("completed")) == "1":
-            logs.append(f"任务已完成：{name}")
-            continue
-        if task_type not in SUPPORTED_TASK_TYPES:
-            skipped += 1
-            logs.append(f"跳过任务：{name}（需在小程序内操作）")
-            continue
-        try:
-            result = client.complete_task(task)
-            reward = result.get("rewardText") or task.get("rewardText") or "已领取"
-            logs.append(f"任务完成：{name}，{reward}")
-            completed += 1
-        except Exception as exc:
-            logs.append(f"任务失败：{name}，{exc}")
-        time.sleep(random.uniform(2.5, 3.5))
+                continue
+            if task_type not in SUPPORTED_TASK_TYPES:
+                skipped += 1
+                continue
+            try:
+                client.complete_task(task)
+                completed += 1
+            except Exception:
+                pass
+            time.sleep(random.uniform(2.5, 3.5))
+    except Exception:
+        pass
 
+    # 后台静默收取好友能量
     try:
         claimable_friends = [
-            friend
-            for friend in client.friends()
+            friend for friend in client.friends()
             if str(friend.get("friendStatus")) == FRIEND_STATUS_CLAIMABLE
             and friend.get("friendTomatoUserId")
         ]
         stolen_count = 0
-        stolen_energy = 0
-        failed_count = 0
         for friend in claimable_friends:
             friend_user_id = friend["friendTomatoUserId"]
             try:
                 friend_home = client.friend_home(friend_user_id)
                 amount = int(friend_home.get("stealAmount") or 0)
-                if str(friend_home.get("canSteal")) != "1" or amount <= 0:
-                    continue
-                client.steal_friend_energy(friend_user_id)
-                stolen_count += 1
-                stolen_energy += amount
+                if str(friend_home.get("canSteal")) == "1" and amount > 0:
+                    client.steal_friend_energy(friend_user_id)
+                    stolen_count += 1
             except Exception:
-                failed_count += 1
+                pass
             time.sleep(random.uniform(1.5, 2.5))
 
-        if stolen_count:
-            detail = f"好友能量：成功收取 {stolen_count} 位好友，共 {stolen_energy} 能量"
-            if failed_count:
-                detail += f"，失败 {failed_count} 位"
-            logs.append(detail)
-            if friend_task and str(friend_task.get("completed")) != "1":
-                completed += 1
-        elif failed_count:
-            logs.append(f"好友能量：收取失败 {failed_count} 位")
-        else:
-            logs.append("好友能量：暂无可收取能量")
-    except Exception as exc:
-        logs.append(f"好友能量失败：{exc}")
+        if stolen_count and friend_task and str(friend_task.get("completed")) != "1":
+            completed += 1
+    except Exception:
+        pass
 
-    home = client.home()
-    logs.append(home_line(home, "任务后状态"))
-    energy = int(home.get("energyBalance") or 0)
-    if energy > 0:
-        before_tomato = int(home.get("tomatoBalance") or 0)
-        try:
-            grown = client.use_energy()
-            after_tomato = int(grown.get("tomatoBalance") or 0)
-            gained = int(grown.get("gainedTomatoAmount") or 0)
-            if not gained:
-                gained = max(0, after_tomato - before_tomato)
-            logs.append(
-                f"使用能量：消耗 {grown.get('usedEnergyAmount', energy)}，"
-                f"成长到 {grown.get('stageName', '未知阶段')} "
-                f"{grown.get('currentExp', 0)}/{grown.get('stageRequiredExp', 0)}，"
-                f"获得番茄 {gained}"
-            )
-            home = grown
-        except Exception as exc:
-            logs.append(f"使用能量失败：{exc}")
-    else:
-        logs.append("使用能量：当前没有可用能量")
+    # 后台静默使用能量
+    try:
+        home = client.home()
+        energy = int(home.get("energyBalance") or 0)
+        if energy > 0:
+            client.use_energy()
+    except Exception:
+        pass
 
-    logs.append(home_line(home, "最终状态"))
-    logs.append(f"本次完成任务 {completed} 个，跳过 {skipped} 个")
+    # 仅仅打印最终的任务状态
+    logs.append(f"✅ 任务状态：成功完成 {completed} 个，跳过 {skipped} 个")
     return logs
 
 
