@@ -47,17 +47,7 @@ FRIEND_STATUS_CLAIMABLE = "0"
 
 def get_beijing_time():
     tz = timezone(timedelta(hours=8))
-    return datetime.now(tz).strftime("%m-%d %H:%M:%S")
-
-
-def mask_string(s):
-    """仅仅用于失败账号的脱敏显示，方便认出是哪个号又不会泄露"""
-    if not s:
-        return "未知"
-    s = str(s).strip()
-    if len(s) <= 6:
-        return s
-    return s[:4] + "****" + s[-4:]
+    return datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
 
 
 def send_wecom(title, content):
@@ -72,7 +62,6 @@ def send_wecom(title, content):
         message = {
             "msgtype": "text",
             "text": {
-                # [修改点]：这里把 f"{title}\n\n{content}" 改成了 f"{title}\n{content}"
                 "content": f"{title}\n{content}"
             }
         }
@@ -265,22 +254,24 @@ def process_user(account_param, index):
     """
     logs = [f"【账号 {index}】"]
     client = TomatoClient(account_param)
+    is_success = True  # 默认账号运行成功
 
     # 尝试登录
     try:
         client.login()
     except Exception as exc:
         logs.append(f"❌ 登录失败：{exc}")
-        return False, logs  # 登录失败，直接返回 False
+        return False, logs
 
-    # 后台静默执行任务，不再打印详细过程
     completed = 0
     skipped = 0
     friend_task = None
     
     try:
         for task in client.tasks():
+            name = task.get("taskName") or task.get("taskCode") or "未知任务"
             task_type = task.get("taskType")
+            
             if task_type == FRIEND_TASK_TYPE:
                 friend_task = task
                 continue
@@ -289,11 +280,19 @@ def process_user(account_param, index):
             if task_type not in SUPPORTED_TASK_TYPES:
                 skipped += 1
                 continue
+                
             try:
                 client.complete_task(task)
                 completed += 1
-            except Exception:
-                pass
+            except Exception as exc:
+                err_msg = str(exc)
+                # 如果包含开卡等提示，详细打印并将整个账号标记为失败
+                if "开卡" in err_msg:
+                    logs.append(f"⚠️ 任务失败：{name}，{err_msg}")
+                    is_success = False 
+                else:
+                    logs.append(f"⚠️ 任务失败：{name}")
+                
             time.sleep(random.uniform(2.5, 3.5))
     except Exception:
         pass
@@ -333,7 +332,7 @@ def process_user(account_param, index):
         pass
 
     logs.append(f"✅ 任务状态：成功完成 {completed} 个，跳过 {skipped} 个")
-    return True, logs  # 正常跑完返回 True
+    return is_success, logs
 
 
 def main():
@@ -365,14 +364,15 @@ def main():
             if is_success:
                 success_count += 1
             else:
-                # 记录失败的账号和脱敏 wid
-                failed_wids.append(f"账号 {index}: {mask_string(account_param)}")
+                # 判断失败原因，不打码，直接显示完整参数
+                reason = "未开卡" if any("开卡" in log for log in logs) else "失效异常"
+                failed_wids.append(f"账号 {index} ({reason}): {account_param}")
         except Exception as exc:
             logs = [
                 f"【账号 {index}】",
                 f"❌ 处理异常：{exc}",
             ]
-            failed_wids.append(f"账号 {index}: {mask_string(account_param)}")
+            failed_wids.append(f"账号 {index} (运行异常): {account_param}")
             
         print("\n".join(logs))
         
@@ -381,7 +381,7 @@ def main():
 
     failed_count = total_accounts - success_count
     
-    # 构建推送文本
+    # 构建推送文本 (紧凑格式，中间不空行)
     summary_title = "🍅 统一茄皇每日任务报告"
     summary_stats = (
         f"⏰ 执行时间：{bj_time}\n"
