@@ -47,7 +47,7 @@ FRIEND_STATUS_CLAIMABLE = "0"
 
 def get_beijing_time():
     tz = timezone(timedelta(hours=8))
-    return datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
+    return datetime.now(tz).strftime("%m-%d %H:%M:%S")
 
 
 def send_wecom(title, content):
