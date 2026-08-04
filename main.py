@@ -364,7 +364,6 @@ def main():
             if is_success:
                 success_count += 1
             else:
-                # 判断失败原因，不打码，直接显示完整参数
                 reason = "未开卡" if any("开卡" in log for log in logs) else "失效异常"
                 failed_wids.append(f"账号 {index} ({reason}): {account_param}")
         except Exception as exc:
@@ -381,7 +380,6 @@ def main():
 
     failed_count = total_accounts - success_count
     
-    # 构建推送文本 (紧凑格式，中间不空行)
     summary_title = "🍅 统一茄皇每日任务报告"
     summary_stats = (
         f"⏰ 执行时间：{bj_time}\n"
