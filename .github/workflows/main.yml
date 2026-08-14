@@ -2,7 +2,8 @@ name: 茄皇
 
 on:
   schedule:
-    - cron: '15 16 * * *'
+    - cron: '16 16 * * *'
+    - cron: '16 3 * * *'
   workflow_dispatch:
 
 jobs:
